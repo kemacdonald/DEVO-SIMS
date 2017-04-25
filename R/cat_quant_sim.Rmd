@@ -1,0 +1,144 @@
+---
+title: "Devo Stats Simulation"
+author: "Kyle MacDonald"
+date: "3/21/2017"
+output: html_document
+---
+
+## Set up
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(langcog)
+library(lme4)
+theme_set(theme_classic())
+```
+
+## Simulation functions
+
+Function to simulate some null data for one experiment with a binary response outcome variable.
+
+```{r}
+# simulate one experiment
+sim_experiment <- function(n_kids, n_trials, conditions, prob_cond_a, prob_cond_b) {
+  d <- tibble()
+  trial_num <- seq(1:n_trials)
+  for(kid in 1:n_kids) {
+    id <- kid
+    condition <- sample(conditions, 1)
+    # simulate kid doing the task
+    if(condition == "a") {
+      response <- replicate(n_trials, rbinom(n = 1, size = 1, prob = prob_cond_a))  
+    } else {
+      response <- replicate(n_trials, rbinom(n = 1, size = 1, prob = prob_cond_b))  
+    }
+    
+    # pull kid data together in tibble
+    d.tmp <- tibble(id, condition, response, trial_num)
+    
+    # add kid data to full tibble
+    d <- bind_rows(d, d.tmp)
+  }
+  d
+}
+```
+
+### Function to simulate the two kinds of analysis:
+
+Treat as quantitative:
+- get proportion correct for each participant
+- take the mean of those proportions
+- test difference between group means using t-test
+
+Treat as binary response:
+- model trial-level data using logistic regression
+
+```{r}
+sim_analysis <- function(data) {
+  # standard devo-style analysis treating as means
+  m_t <- data %>% 
+    group_by(id, condition) %>% 
+    summarise(prop_correct = mean(response)) %>% 
+    t.test(prop_correct ~ condition, data = .)
+  
+  t <- m_t$p.value
+  
+  # logistic regression 
+  logit <- data %>% 
+    glm(response ~ condition, data = ., family=binomial) %>% 
+    summary() %>% 
+    coef %>% 
+    .[2,4] 
+  
+  p_df <- tibble(t, logit) %>% 
+    gather(key = test, value = p_value)
+}
+```
+
+
+## Simulation
+
+```{r simulation}
+# variables for simulation
+n_obs <- 100
+n_trials <- 3
+n_experiments <- 100
+prob_a <- 0.50
+prob_b <- 0.55
+cond_names <- c("a", "b")
+
+# create empty tibble for simulation output
+p_vals_df <- tibble()
+
+for(experiment in 1:n_experiments) {
+  # simulate data
+  d <- sim_experiment(n_kids = n_obs, n_trials = n_trials, 
+                      prob_cond_a = prob_a, prob_cond_b = prob_b, 
+                      conditions = cond_names)
+  # simulate analysis
+  p_vals <- sim_analysis(d) %>% 
+    mutate(exp_num = experiment)
+  
+  p_vals_df <- bind_rows(p_vals_df, p_vals)
+}
+```
+
+## Summarise and visualize simulation results
+
+Plot the distribution of p values over the [0,1] scale
+
+```{r}
+ggplot(p_vals_df, aes(x = p_value, fill = test)) +
+  geom_histogram(color = "black", position = "stack") +
+  scale_fill_solarized() +
+  geom_vline(xintercept = .05, size = 2, color = "darkorange", linetype = "dashed")
+```
+
+Zoom in on the decision threshold of p < .05
+
+```{r}
+p_vals_df %>% 
+  filter(p_value <= 0.05) %>% 
+  ggplot(., aes(x = p_value, fill = test)) +
+  geom_histogram(color = "black", position = "stack") +
+  scale_fill_solarized() +
+  geom_vline(xintercept = .05, size = 2, color = "darkorange", linetype = "dashed")
+```
+
+Plot the total number of "significant" p values for the two analyses.
+
+```{r}
+p_vals_df %>% 
+  mutate(p_sig = ifelse(p_value <= .05, T, F)) %>% 
+  group_by(test) %>% 
+  summarise(m = mean(p_sig)) %>% 
+  ggplot(., aes(x = test, y = m, fill = test)) +
+  geom_bar(stat = "identity", width = 0.5, color = "black") +
+  scale_fill_solarized() 
+```
+
+
+
+
+
