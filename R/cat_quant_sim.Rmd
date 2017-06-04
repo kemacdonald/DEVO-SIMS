@@ -17,13 +17,14 @@ theme_set(theme_classic())
 
 ## Simulation functions
 
-Function to simulate some null data for one experiment with a binary response outcome variable.
+Function to simulate some data for one experiment with a binary response outcome variable.
 
 ```{r}
 # simulate one experiment
-sim_experiment <- function(n_kids, n_trials, conditions, prob_cond_a, prob_cond_b) {
+simulate_experiment <- function(n_kids, n_trials, conditions, prob_cond_a, prob_cond_b) {
   d <- tibble()
   trial_num <- seq(1:n_trials)
+  kids <- 1:n_kids
   
   # simuluate kid doing task
   for(kid in 1:n_kids) {
@@ -32,9 +33,9 @@ sim_experiment <- function(n_kids, n_trials, conditions, prob_cond_a, prob_cond_
     condition <- sample(conditions, 1)
     # generate data for kid using the corresponding probability of success on each trial 
     if(condition == "a") {
-      response <- replicate(n_trials, rbinom(n = 1, size = 1, prob = prob_cond_a))  
+      response <- rbinom(n = n_trilas, size = 1, prob = prob_cond_a)
     } else {
-      response <- replicate(n_trials, rbinom(n = 1, size = 1, prob = prob_cond_b))  
+      response <- rbinom(n = n_trials, size = 1, prob = prob_cond_b)
     }
     
     # pull kid data together in tibble
@@ -86,7 +87,7 @@ sim_analysis <- function(data) {
 # variables for simulation
 n_obs <- 100
 n_trials <- 3
-n_experiments <- 100
+n_experiments <- 10
 prob_a <- 0.50
 prob_b <- 0.55
 cond_names <- c("a", "b")
