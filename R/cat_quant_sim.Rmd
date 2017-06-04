@@ -24,10 +24,13 @@ Function to simulate some null data for one experiment with a binary response ou
 sim_experiment <- function(n_kids, n_trials, conditions, prob_cond_a, prob_cond_b) {
   d <- tibble()
   trial_num <- seq(1:n_trials)
+  
+  # simuluate kid doing task
   for(kid in 1:n_kids) {
     id <- kid
+    # randomly assign to condition 
     condition <- sample(conditions, 1)
-    # simulate kid doing the task
+    # generate data for kid using the corresponding probability of success on each trial 
     if(condition == "a") {
       response <- replicate(n_trials, rbinom(n = 1, size = 1, prob = prob_cond_a))  
     } else {
@@ -62,14 +65,14 @@ sim_analysis <- function(data) {
     summarise(prop_correct = mean(response)) %>% 
     t.test(prop_correct ~ condition, data = .)
   
-  t <- m_t$p.value
+  t <- m_t$p.value # extract p.value
   
   # logistic regression 
   logit <- data %>% 
     glm(response ~ condition, data = ., family=binomial) %>% 
     summary() %>% 
     coef %>% 
-    .[2,4] 
+    .[2,4] # extract p.value
   
   p_df <- tibble(t, logit) %>% 
     gather(key = test, value = p_value)
@@ -92,7 +95,7 @@ cond_names <- c("a", "b")
 p_vals_df <- tibble()
 
 for(experiment in 1:n_experiments) {
-  # simulate data
+  # simulate experiment
   d <- sim_experiment(n_kids = n_obs, n_trials = n_trials, 
                       prob_cond_a = prob_a, prob_cond_b = prob_b, 
                       conditions = cond_names)
@@ -100,6 +103,7 @@ for(experiment in 1:n_experiments) {
   p_vals <- sim_analysis(d) %>% 
     mutate(exp_num = experiment)
   
+  # pull together information in data frame
   p_vals_df <- bind_rows(p_vals_df, p_vals)
 }
 ```
